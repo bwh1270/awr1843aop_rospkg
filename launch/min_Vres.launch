@@ -1,0 +1,31 @@
+<launch>
+
+    <!-- Input arguments -->
+    <arg name="device" value="1843" doc="TI mmWave sensor device"/>
+    <arg name="config" value="TI mmWave sensor device configuration"/>
+    <arg name="max_elevation_angle_deg" default="90" doc="Maximum allowed elevation angle in degrees for detected object data [0 > value >= 90]}"/>
+    <arg name="max_azimuth_angle_deg" default="90" doc="Maximum allowed azimuth angle in degrees for detected object data [0 > value >= 90]}"/>
+
+    <!-- mmWave_Manager node -->
+    <node pkg="awr1843aop" type="awr1843aop" name="DataPort_node" output="screen">
+        <param name="user_port" value="/dev/ttyUSB0"  />
+        <param name="user_rate" value="115200"   />
+        <param name="data_port" value="/dev/ttyUSB1"  />
+        <param name="data_rate" value="921600"   />
+        <param name="max_elevation_angle_deg" value="$(arg max_elevation_angle_deg)"   />
+        <param name="max_azimuth_angle_deg" value="$(arg max_azimuth_angle_deg)"   />
+        <param name="frame_id" value="awr1843aop"/>
+    </node>
+
+    <!-- Configuration file(UserPort) node (terminates after configuring mmWave sensor) -->
+    <node pkg="awr1843aop" type="UserPort" name="UserPort_node" args="$(find awr1843aop)/cfg/min_Vres.cfg" output="screen"/>
+
+    <!-- Static transform from map to base_radar_link for visualization of stand-alone mmWave sensor using Rviz -->
+    <!--node pkg="tf" type="static_transform_publisher" name="static_tf_map_to_base_radar_link" args="0 0 0 0 0 0 awr1843aop_pcl awr1843aop 100"/-->
+    <node pkg="tf" type="static_transform_publisher" name="static_tf_map_to_base_radar_link" args="0 0 0 0 0 0 awr1843aop_pcl awr1843aop 100"/>
+    
+    <!-- Launch Rviz with pre-defined configuration to view mmWave sensor detected object data (color by intensity) -->
+    <!--node pkg="rviz" type="rviz" name="rviz" args="-d $(find awr1843aop)/launch/rviz/ti_mmwave_3d.rviz"/-->
+    <!--node pkg="rviz" type="rviz" name="rviz" args="-d $(find awr1843aop)/launch/rviz/ti_mmwave_3d.rviz"/-->
+
+</launch>

@@ -1,0 +1,10 @@
+Header header
+uint16 total_points
+uint16 point_id
+float32 x
+float32 y
+float32 z
+float32 velocity
+float32 azimuth_deg
+float32 elevation_deg
+float32 snr

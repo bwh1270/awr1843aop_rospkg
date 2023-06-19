@@ -1,0 +1,15 @@
+<library path="lib/libradar">
+	<class name="awr1843aop/Server" type="awr1843aop::Server" base_class_type="nodelet::Nodelet">
+		<description>
+			User Service Nodelet
+		</description>
+	</class>
+    
+    <class name="awr1843aop/DataPort" type="awr1843aop::DataPort" base_class_type="nodelet::Nodelet">
+        <description>
+            Data Port Nodelet
+        </description>
+    </class>
+
+	<depend>serial</depend>
+</library>
