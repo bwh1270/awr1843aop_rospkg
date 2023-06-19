@@ -1,5 +1,5 @@
 # awr1843aop
-- - -
+
 
 1. Connect the device(radar sensor) to the pc which is operated in Ubuntu.
 2. Set ttyusb speed to desired speed (baudrate)
