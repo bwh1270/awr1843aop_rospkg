@@ -19,6 +19,16 @@ $ git clone https://github.com/bwh1270/awr1843aop.git
 $ git clone https://github.com/wjwwood/serial.git
 ```
 
+
+4. Usage
+```bash
+$ source devel/setup.bash  
+$ roslaunch awr1843aop min_Vres.launch
+
+# Check the message in another terminal
+$ rostopic echo /awr1843aop/radarPoints
+```
+
 ※ Customed message: radarPoints.msg
 ```bash
 std_msgs/Header header
