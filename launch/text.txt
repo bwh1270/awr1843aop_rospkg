@@ -1,0 +1,100 @@
+header: 
+  seq: 2476
+  stamp: 
+    secs: 1689244219
+    nsecs: 508184501
+  frame_id: "awr1843aop"
+total_points: 
+  data: 3
+point_idx: 
+  layout: 
+    dim: []
+    data_offset: 0
+  data: [0, 1, 2]
+points: 
+  - 
+    x: 0.04256294667720795
+    y: 0.988157331943512
+    z: -0.9363847970962524
+  - 
+    x: 0.0591152049601078
+    y: 1.5209964513778687
+    z: -1.123188853263855
+  - 
+    x: 0.3582381308078766
+    y: 3.2175023555755615
+    z: 2.0300161838531494
+velocity: 
+  layout: 
+    dim: []
+    data_offset: 0
+  data: [0.0, 0.0, 0.0]
+snr: 
+  layout: 
+    dim: []
+    data_offset: 0
+  data: [0.0, 0.0, 0.0]
+---
+header: 
+  seq: 2477
+  stamp: 
+    secs: 1689244219
+    nsecs: 542219331
+  frame_id: "awr1843aop"
+total_points: 
+  data: 3
+point_idx: 
+  layout: 
+    dim: []
+    data_offset: 0
+  data: [0, 1, 2]
+points: 
+  - 
+    x: 0.0851258933544159
+    y: 0.9854035377502441
+    z: -0.9363847970962524
+  - 
+    x: 0.0591152049601078
+    y: 1.5209964513778687
+    z: -1.123188853263855
+  - 
+    x: 0.3582381308078766
+    y: 3.2175023555755615
+    z: 2.0300161838531494
+velocity: 
+  layout: 
+    dim: []
+    data_offset: 0
+  data: [0.0, 0.0, 0.0]
+snr: 
+  layout: 
+    dim: []
+    data_offset: 0
+  data: [0.0, 0.0, 0.0]
+---
+header: 
+  seq: 2478
+  stamp: 
+    secs: 1689244219
+    nsecs: 575095943
+  frame_id: "awr1843aop"
+total_points: 
+  data: 3
+point_idx: 
+  layout: 
+    dim: []
+    data_offset: 0
+  data: [0, 1, 2]
+points: 
+  - 
+    x: 0.04256294667720795
+    y: 0.988157331943512
+    z: -0.9363847970962524
+  - 
+    x: 0.0591152049601078
+    y: 1.5209964513778687
+    z: -1.123188853263855
+  - 
+    x: 0.3582381308078766
+    y: 3.2175023555755615
+    z: 2.0300161838531494

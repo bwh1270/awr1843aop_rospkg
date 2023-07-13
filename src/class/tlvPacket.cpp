@@ -5,8 +5,10 @@ tlvPacket::tlvPacket(ros::NodeHandle *nh) : currentBufPtr(&buffers[0]), nextBufP
 {
 	tlvPacket_pub = nh->advertise<sensor_msgs::PointCloud2>("/awr1843aop/points_pcl", 100);
 	points_pub    = nh->advertise<awr1843aop::points>("/awr1843aop/points", 100);
-	marker_pub    = nh->advertise<visualization_msgs::Marker>("/awr1843aop/points_markers", 100);
-    radarScan_pub = nh->advertise<awr1843aop::ScanPoints>("/awr1843aop/scan_points", 100);
+    //marker_pub    = nh->advertise<visualization_msgs::Marker>("/awr1843aop/points_markers", 100);
+	
+    /* Customed MSG Publisher */
+    radarPoints_pub = nh->advertise<awr1843aop::radarPoints>("/awr1843aop/radarPoints", 10);
 	
 	maxElevationAngleDeg = 90;
 	maxAzimuthAngleDeg    = 90;
@@ -221,7 +223,11 @@ void *tlvPacket::sortIncomingData(void)
 	
 	boost::shared_ptr<pcl::PointCloud<pcl::PointXYZI>> RScan(new pcl::PointCloud<pcl::PointXYZI>);
 	awr1843aop::points radarPoints;
-    std::shared_ptr<awr1843aop::ScanPoints> ScanPtr(new awr1843aop::ScanPoints);
+	
+	/* Customed MSG */
+    // std::shared_ptr<awr1843aop::radarPoints> ScanPtr(new awr1843aop::radarPoints);
+	awr1843aop::radarPoints radar_points_msg;
+	
 
 	// wait for first packet to arrive
 	pthread_mutex_lock(&countSync_mutex);
@@ -234,7 +240,7 @@ void *tlvPacket::sortIncomingData(void)
 		switch (sorterState)
 		{
 			case READ_HEADER:
-				
+			{
 				// init variables
 				mmwData.numObjOut = 0;
 				
@@ -291,10 +297,10 @@ void *tlvPacket::sortIncomingData(void)
 					sorterState = SWAP_BUFFERS;
 				break;
 	
-
+			}
 			case READ_OBJ_STRUCT:
+			{
 				// CHECK_TLV_TYPE case has already read tlvType and tlvLen
-
 				i = 0;
 				offset = 0;
 				// SDK version is 3.x or newer
@@ -310,6 +316,24 @@ void *tlvPacket::sortIncomingData(void)
 				RScan->is_dense = 1;
 				RScan->points.resize(RScan->width * RScan->height);
 
+				/* MSG Test */
+				radar_points_msg.header.stamp = ros::Time::now();
+				radar_points_msg.header.frame_id = frameID;
+				if (mmwData.numObjOut != 0) {
+					radar_points_msg.total_points.data = mmwData.numObjOut;
+					radar_points_msg.point_idx.data.resize((uint16_t) mmwData.numObjOut);
+					radar_points_msg.points.resize(mmwData.numObjOut);
+					radar_points_msg.velocity.data.resize(mmwData.numObjOut);
+					radar_points_msg.snr.data.resize(mmwData.numObjOut);
+				} else {
+					radar_points_msg.total_points.data = 0;
+					radar_points_msg.point_idx.data.resize(1);
+					radar_points_msg.points.resize(1);
+					radar_points_msg.velocity.data.resize(1);
+					radar_points_msg.snr.data.resize(1);
+				}
+				
+
 				// Calculate ratios for max desired elevation and azimuth angles
 				if ((maxElevationAngleDeg >= 0) && (maxElevationAngleDeg < 90)) {
 					maxElevationAngleRatioSquared = tan(maxElevationAngleDeg * M_PI / 180.0);
@@ -324,14 +348,6 @@ void *tlvPacket::sortIncomingData(void)
 				else
 					maxAzimuthAngleDeg = -1;
 
-                // When mmwData.numObjOut != 0
-                if (mmwData.numObjOut != 0) {
-                    ScanPtr->header.frame_id = frameID;
-                    ScanPtr->header.stamp = ros::Time::now();
-                    ScanPtr->total_points = mmwData.numObjOut;
-                }
-                //else
-			
 				// Populate pointcloud
 				while (i < mmwData.numObjOut) {
 					if (((mmwData.header.version >> 24) & 0xFF) >= 3) { // SDK version is 3.x or newer
@@ -364,171 +380,187 @@ void *tlvPacket::sortIncomingData(void)
 						radarPoints.z = mmwData.newObjOut.z;
 						radarPoints.velocity = mmwData.newObjOut.velocity;
 						// For SDK 3.x, intensity is replaced by snr in sideInfo and is parsed in the READ_SIDE_INFO case
-                        ScanPtr->point_id = i;
-                        ScanPtr->x = mmwData.newObjOut.x;
-                        ScanPtr->y = mmwData.newObjOut.y;
-                        ScanPtr->z = mmwData.newObjOut.z;
-                        ScanPtr->velocity = mmwData.newObjOut.velocity;
+
+						/* Customed MSG */
+						radar_points_msg.point_idx.data[i] = i;
+						radar_points_msg.points[i].x = mmwData.newObjOut.x;
+						radar_points_msg.points[i].y = mmwData.newObjOut.y;
+						radar_points_msg.points[i].z = mmwData.newObjOut.z;
+						radar_points_msg.velocity.data[i] = mmwData.newObjOut.velocity;
+						++i;
                     }
 
 					if ((maxElevationAngleRatioSquared == -1) || (((RScan->points[i].z * RScan->points[i].z) / (RScan->points[i].x *RScan->points[i].x + RScan->points[i].y * RScan->points[i].y)) < maxElevationAngleRatioSquared) &&
 						((maxAzimuthAngleRatio == -1) || (fabs(RScan->points[i].y / RScan->points[i].x) < maxAzimuthAngleRatio)) && (RScan->points[i].x != 0))
 					{
 						points_pub.publish(radarPoints);
-                        radarScan_pub.publish(*ScanPtr);
 					}
-					i++;
+					
 				}
-		
-			sorterState = CHECK_TLV_TYPE;
-			break;
-		
-		
-		case READ_SIDE_INFO:
 			
-			// Make sure we already received and parsed detected obj list (READ_OBJ_STRUCT)
-			if (mmwData.numObjOut > 0) {
-				for (i=0; i < mmwData.numObjOut; i++) {
-					// get snr [unit is 0.1 steps of dB]
-					std::memcpy( &mmwData.sideInfo.snr, &currentBufPtr->at(currentDataPosition), sizeof(mmwData.sideInfo.snr));
-					currentDataPosition += (sizeof(mmwData.sideInfo.snr));
-
-					// get noise [unit is 0.1 steps of dB]
-					std::memcpy( &mmwData.sideInfo.noise, &currentBufPtr->at(currentDataPosition), sizeof(mmwData.sideInfo.noise));
-					currentDataPosition += (sizeof(mmwData.sideInfo.noise));
-
-					RScan->points[i].intensity = (float) mmwData.sideInfo.snr / 10.0;    // Use snr for "intensity" field (divide by 10 since unit of snr is 0.1dB)
-                    ScanPtr->snr = (float) mmwData.sideInfo.snr / 10.0;
-                }
+				/* MSG Test */
+                //radarPoints_pub.publish(radar_points_msg);
+		
+				sorterState = CHECK_TLV_TYPE;
+				break;
+		
 			}
-			else // else just skip side info section if we have not already received and parsed detected obj list
-            {
-				i = 0;	
-				currentDataPosition += tlvLen;
-			}
-			
-			sorterState = CHECK_TLV_TYPE;
-			break;
-	
-
-		case READ_LOG_MAG_RANGE:
-			//i=0;
-			//currentDataPosition += tlvLen;
-			sorterState = CHECK_TLV_TYPE;
-			break;
-
-		case READ_NOISE:
-			i=0;
-			currentDataPosition += tlvLen;
-			sorterState = CHECK_TLV_TYPE;
-			break;
-
-		case READ_AZIMUTH:
-			i=0;
-			currentDataPosition += tlvLen;
-			sorterState = CHECK_TLV_TYPE;
-			break;
-		
-		case READ_DOPPLER:
-			i=0;
-			currentDataPosition += tlvLen;
-			sorterState = CHECK_TLV_TYPE;
-			break;
-
-		case READ_STATS:
-			i=0;
-			currentDataPosition += tlvLen;
-			sorterState = CHECK_TLV_TYPE;
-			break;
-		
-		case CHECK_TLV_TYPE:
-			
-			if (tlvCount++ >= mmwData.header.numTLVs) // Done parsing all recieved TLV sections
+            case READ_SIDE_INFO:
 			{
-				// Publish detected object pointcloud
-				if (mmwData.numObjOut > 0)
+				// Make sure we already received and parsed detected obj list (READ_OBJ_STRUCT)
+				if (mmwData.numObjOut > 0) {
+					for (i=0; i < mmwData.numObjOut; i++) {
+						// get snr [unit is 0.1 steps of dB]
+						std::memcpy( &mmwData.sideInfo.snr, &currentBufPtr->at(currentDataPosition), sizeof(mmwData.sideInfo.snr));
+						currentDataPosition += (sizeof(mmwData.sideInfo.snr));
+
+						// get noise [unit is 0.1 steps of dB]
+						std::memcpy( &mmwData.sideInfo.noise, &currentBufPtr->at(currentDataPosition), sizeof(mmwData.sideInfo.noise));
+						currentDataPosition += (sizeof(mmwData.sideInfo.noise));
+
+						RScan->points[i].intensity = (float) mmwData.sideInfo.snr / 10.0;    // Use snr for "intensity" field (divide by 10 since unit of snr is 0.1dB)
+
+						/* Customed MSG */
+						radar_points_msg.snr.data[i] = (float) mmwData.sideInfo.snr / 10.0;
+                        
+					}
+
+                    /* @brief Publishing customed data */
+                    radarPoints_pub.publish(radar_points_msg);
+				}
+				else // else just skip side info section if we have not already received and parsed detected obj list
 				{
-					j = 0;
-					for (i=0; i < mmwData.numObjOut; i++)
+					i = 0;	
+					currentDataPosition += tlvLen;
+				}
+				
+				sorterState = CHECK_TLV_TYPE;
+				break;
+		
+			}
+			case READ_LOG_MAG_RANGE:
+			{
+				//i=0;
+				//currentDataPosition += tlvLen;
+				sorterState = CHECK_TLV_TYPE;
+				break;
+			}
+			case READ_NOISE:
+			{
+				i=0;
+				currentDataPosition += tlvLen;
+				sorterState = CHECK_TLV_TYPE;
+				break;
+			}
+			case READ_AZIMUTH:
+			{
+				i=0;
+				currentDataPosition += tlvLen;
+				sorterState = CHECK_TLV_TYPE;
+				break;
+			}
+			case READ_DOPPLER:
+			{
+				i=0;
+				currentDataPosition += tlvLen;
+				sorterState = CHECK_TLV_TYPE;
+				break;
+			}
+			case READ_STATS:
+			{
+				i=0;
+				currentDataPosition += tlvLen;
+				sorterState = CHECK_TLV_TYPE;
+				break;
+			}
+			case CHECK_TLV_TYPE:
+			{	
+				if (tlvCount++ >= mmwData.header.numTLVs) // Done parsing all recieved TLV sections
+				{
+					// Publish detected object pointcloud
+					if (mmwData.numObjOut > 0)
 					{
-						// Keep point if elevation and azimuth angles are less than specified max values
-						// (NOTE: The following calculations are done using ROS standard coordinates system axis definitions where X is forward and Y is left)
-                        if (((maxElevationAngleRatioSquared == -1) ||
-                             (((RScan->points[i].z * RScan->points[i].z) / (RScan->points[i].x * RScan->points[i].x +
-                                                                            RScan->points[i].y * RScan->points[i].y)
-                              ) < maxElevationAngleRatioSquared)
-                            ) &&
-                            ((maxAzimuthAngleRatio == -1) || (fabs(RScan->points[i].y / RScan->points[i].x) < maxAzimuthAngleRatio)) &&
-                                    (RScan->points[i].x != 0)
-                           )
-                        {
-                            std::memcpy( &RScan->points[j], &RScan->points[i], sizeof(RScan->points[i]));
-                            ++j;
-                        }
-                    }
-                
-                    mmwData.numObjOut = j;   // update number of objects as some points may have been removed
+						j = 0;
+						for (i=0; i < mmwData.numObjOut; i++)
+						{
+							// Keep point if elevation and azimuth angles are less than specified max values
+							// (NOTE: The following calculations are done using ROS standard coordinates system axis definitions where X is forward and Y is left)
+							if (((maxElevationAngleRatioSquared == -1) ||
+								(((RScan->points[i].z * RScan->points[i].z) / (RScan->points[i].x * RScan->points[i].x +
+																				RScan->points[i].y * RScan->points[i].y)
+								) < maxElevationAngleRatioSquared)
+								) &&
+								((maxAzimuthAngleRatio == -1) || (fabs(RScan->points[i].y / RScan->points[i].x) < maxAzimuthAngleRatio)) &&
+										(RScan->points[i].x != 0)
+							)
+							{
+								std::memcpy( &RScan->points[j], &RScan->points[i], sizeof(RScan->points[i]));
+								++j;
+							}
+						}
+					
+						mmwData.numObjOut = j;   // update number of objects as some points may have been removed
 
-                    // Resize point cloud since some points may have been removed
-                    RScan->width = mmwData.numObjOut;
-                    RScan->points.resize(RScan->width * RScan->height);
-                   
-                    tlvPacket_pub.publish(RScan);
-                }
-                sorterState = SWAP_BUFFERS;
-            }
-            else // More TLV sections to parse
-            {
-                // get tlvType (32 bits) & remove from queue
-                std::memcpy( &tlvType, &currentBufPtr->at(currentDataPosition), sizeof(tlvType));
-                currentDataPosition += (sizeof(tlvType));
+						// Resize point cloud since some points may have been removed
+						RScan->width = mmwData.numObjOut;
+						RScan->points.resize(RScan->width * RScan->height);
+					
+						tlvPacket_pub.publish(RScan);
+					}
+					sorterState = SWAP_BUFFERS;
+				}
+				else // More TLV sections to parse
+				{
+					// get tlvType (32 bits) & remove from queue
+					std::memcpy( &tlvType, &currentBufPtr->at(currentDataPosition), sizeof(tlvType));
+					currentDataPosition += (sizeof(tlvType));
 
-                // get tlvLen (32 bits) & remove from queue
-                std::memcpy( &tlvLen, &currentBufPtr->at(currentDataPosition), sizeof(tlvLen));
-                currentDataPosition += (sizeof(tlvLen));
+					// get tlvLen (32 bits) & remove from queue
+					std::memcpy( &tlvLen, &currentBufPtr->at(currentDataPosition), sizeof(tlvLen));
+					currentDataPosition += (sizeof(tlvLen));
 
-                switch(tlvType)
-                {
-                    case MMWAVE_OUTPUT_DETECTED_POINTS:
-                        sorterState = READ_OBJ_STRUCT;
-                        break;
+					switch(tlvType)
+					{
+						case MMWAVE_OUTPUT_DETECTED_POINTS:
+							sorterState = READ_OBJ_STRUCT;
+							break;
 
-                    case MMWAVE_OUTPUT_RANGE_PROFILE:
-                        sorterState = READ_LOG_MAG_RANGE;
-                        break;
+						case MMWAVE_OUTPUT_RANGE_PROFILE:
+							sorterState = READ_LOG_MAG_RANGE;
+							break;
 
-                    case MMWAVE_OUTPUT_NOISE_PROFILE:
-                        sorterState = READ_NOISE;
-                        break;
+						case MMWAVE_OUTPUT_NOISE_PROFILE:
+							sorterState = READ_NOISE;
+							break;
 
-                    case MMWDEMO_OUTPUT_AZIMUTH_STATIC_HEAT_MAP:
-                        sorterState = READ_AZIMUTH;
-                        break;
-                    
-                    case MMWDEMO_OUTPUT_RANGE_DOPPLER_HEAT_MAP:
-                        sorterState = READ_DOPPLER;
-                        break;
+						case MMWDEMO_OUTPUT_AZIMUTH_STATIC_HEAT_MAP:
+							sorterState = READ_AZIMUTH;
+							break;
+						
+						case MMWDEMO_OUTPUT_RANGE_DOPPLER_HEAT_MAP:
+							sorterState = READ_DOPPLER;
+							break;
 
-                    case MMWDEMO_OUTPUT_MSG_STATS:
-                        sorterState = READ_STATS;
-                        break;
+						case MMWDEMO_OUTPUT_MSG_STATS:
+							sorterState = READ_STATS;
+							break;
 
-                    case MMWDEMO_OUTPUT_MSG_DETECTED_POINTS_SIDE_INFO:
-                        sorterState = READ_SIDE_INFO;
-                        break;
+						case MMWDEMO_OUTPUT_MSG_DETECTED_POINTS_SIDE_INFO:
+							sorterState = READ_SIDE_INFO;
+							break;
 
-                    case MMWDEMO_OUTPUT_MSG_MAX:
-                        sorterState = READ_HEADER;
-                        break;
+						case MMWDEMO_OUTPUT_MSG_MAX:
+							sorterState = READ_HEADER;
+							break;
 
-                    default:
-                        break;
-                }
-            }
-            break;
-
+						default:
+							break;
+					}
+				}
+				break;
+			}
         case SWAP_BUFFERS:
-
+		{
             pthread_mutex_lock(&countSync_mutex);
             pthread_mutex_unlock(&currentBufPtr_mutex);
             ++countSync;
@@ -545,7 +577,7 @@ void *tlvPacket::sortIncomingData(void)
             tlvCount = 0;
             sorterState = READ_HEADER;
             break;
-        
+		}
         default:
             break;
         }
@@ -622,6 +654,7 @@ void *tlvPacket::syncedBufferSwap_helper(void *context)
 
 
 /* Visualization Function */
+/* Not maintained 
 void tlvPacket::visualize(const awr1843aop::points &msg)
 {
 	visualization_msgs::Marker marker;
@@ -651,3 +684,4 @@ void tlvPacket::visualize(const awr1843aop::points &msg)
 	
 	marker_pub.publish(marker);
 }
+*/

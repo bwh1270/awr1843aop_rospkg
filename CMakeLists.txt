@@ -59,8 +59,7 @@ find_package(PCL 1.7.2 REQUIRED)
 add_message_files(
     FILES
     points.msg
-    ScanPoints.msg
-    ScanInfo.msg
+    radarPoints.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -81,6 +80,7 @@ generate_messages(
     DEPENDENCIES
     std_msgs
     sensor_msgs
+    geometry_msgs
 )
 
 ################################################

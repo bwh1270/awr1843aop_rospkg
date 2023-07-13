@@ -1,1 +1,0 @@
-ScanPoints[] scan_points

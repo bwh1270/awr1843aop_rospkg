@@ -27,8 +27,8 @@
 /* Include awr1843aop package custom headers */
 #include "awr1843aop/radarParams.hpp"
 #include "awr1843aop/points.h"
-#include "awr1843aop/ScanPoints.h"
-#include "awr1843aop/ScanInfo.h"
+#include "awr1843aop/radarPoints.h"
+
 
 // Define Macros
 #define COUNT_SYNC_MAX 2
@@ -123,6 +123,8 @@ class tlvPacket
 		ros::Publisher tlvPacket_pub;
 		ros::Publisher points_pub;
 		ros::Publisher marker_pub;
-        ros::Publisher radarScan_pub;
+
+        /* Customed MSG Publisher */
+		ros::Publisher radarPoints_pub;
 };
 #endif
