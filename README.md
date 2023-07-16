@@ -20,7 +20,7 @@ $ git clone https://github.com/wjwwood/serial.git
 ```
 
 
-4. Usage
+4. Usage after building awr1843aop and serial packages
 ```bash
 $ source devel/setup.bash  
 $ roslaunch awr1843aop min_Vres.launch
