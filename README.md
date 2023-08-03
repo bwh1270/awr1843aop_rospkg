@@ -38,3 +38,7 @@ geometry_msgs/Point[] points
 std_msgs/Float32MultiArray velocity
 std_msgs/FLoat32MultiArray snr
 ```
+
+
+※ You can download the configuration file of a chirp design. 
+[Chirp Design](https://dev.ti.com/gallery/view/mmwave/mmWaveSensingEstimator/ver/2.2.2/) 
